@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary:    #141414;
+  --color-bg-secondary:  #1c1c1c;
+  --color-bg-card:       #242424;
+  --color-bg-card-hover: #2e2e2e;
+  --color-text-primary:  #f0f0f0;
+  --color-text-secondary:#b8b8b8;
+  --color-accent:        #e0e0e0;
+  --color-accent-hover:  #ffffff;
+  --color-highlight:     #c0c0c0;
+  --color-border:        #3a3a3a;
+  --color-input-bg:      #2b2b2b;
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+}
+
+[data-theme="light"] {
+  --color-bg-primary:    #f5f5f5;
+  --color-bg-secondary:  #ebebeb;
+  --color-bg-card:       #ffffff;
+  --color-bg-card-hover: #f2f2f2;
+  --color-text-primary:  #1a1a1a;
+  --color-text-secondary:#555555;
+  --color-accent:        #1a1a1a;
+  --color-accent-hover:  #000000;
+  --color-highlight:     #444444;
+  --color-border:        #d6d6d6;
+  --color-input-bg:      #ffffff;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+}
+
+button,
+a,
+[role="button"],
+input[type="submit"],
+input[type="button"] {
+  cursor: pointer;
+}

@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "ModelPrint.AppHost": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "dotnetRunMessages": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_ENVIRONMENT": "Development",
+        "DOTNET_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:21357",
+        "DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL": "https://localhost:21358",
+        "DOTNET_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:22459"
+      },
+      "applicationUrl": "https://localhost:49920;http://localhost:49922"
+    }
+  }
+}
