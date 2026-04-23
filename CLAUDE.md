@@ -220,28 +220,51 @@ Never:
 
 ---
 
-## Design System (UPDATED)
+## Design System
 
-### Theme: Soft Dark (Adjusted Again)
+### Theme: Warm Industrial Dark
 
 Goal:
-- softer and more readable dark UI
-- clearer separation between page, sidebar, cards, and inputs
-- avoid compressed near-black surfaces
+- clean, tool-focused dark UI with warm character
+- neutral base surfaces — brown/orange used only for accents
+- depth through layering, not color saturation
 
-Colors:
-- Main background: #141414
-- Sidebar / secondary surfaces: #1c1c1c
+### Color Palette
+
+Warm accents (fixed across light/dark):
+- Primary accent:  #80430E
+- Hover accent:    #A98759
+- Highlight:       #E2BE80 (small UI details only — never full surfaces)
+
+Neutral surfaces (dark mode):
+- Main background: #121212
+- Sidebar / panels: #1c1c1c
 - Cards: #242424
-- Elevated surfaces / inputs: #2b2b2b
-- Borders: #3a3a3a
+- Elevated / inputs: #2b2b2b
+- Borders: #2e2e2e
+
+Neutral surfaces (light mode):
+- Background: #f8f8f8
+- Cards: #ffffff
+- Borders: #e5e5e5
 
 Text:
 - primary: #f0f0f0
-- secondary: #b8b8b8
+- secondary: #b8b0a3 (warm neutral, not blue-grey)
 
-Accent:
-- subtle neutral accent, no neon
+Status tokens:
+- success: #4ade80
+- warning: #E2BE80
+- error:   #f87171
+
+### Rules
+
+* Never use brown/orange tones as full backgrounds
+* Use warm palette ONLY for: buttons, active nav borders, hover borders, small highlights
+* Primary buttons: bg-accent → hover bg-accent-hover, text white
+* Highlight (#E2BE80): hover/selected states and small labels only
+* Active nav: border-l border-accent + bg-accent/10, text-highlight
+* Cards: hover border-accent/30 + slight lift
 
 ---
 
@@ -250,6 +273,7 @@ Accent:
 * minimal
 * modern
 * soft contrast (NOT high contrast black/white)
+* slightly industrial — clean tool aesthetic
 * comfortable to look at long-term
 
 ---
@@ -259,6 +283,7 @@ Accent:
 * rounded-xl
 * soft shadows
 * slightly lighter than background
+* warm accent border on hover
 * smooth hover transitions
 
 ---

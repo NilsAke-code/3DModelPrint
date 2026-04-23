@@ -38,7 +38,7 @@ export default function TopBar() {
   const userName = accounts[0]?.name ?? accounts[0]?.username;
 
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-4 px-6 py-3 bg-bg-primary/80 backdrop-blur-md border-b border-border">
+    <header className="sticky top-0 z-20 flex items-center gap-4 px-6 py-3 bg-bg-secondary/90 backdrop-blur-md border-b border-border">
       <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-auto">
         <div className="relative">
           <Search

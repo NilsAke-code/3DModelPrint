@@ -8,6 +8,7 @@ import {
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { makeRenderer, renderColoredPasses, renderStlStylePass } from '../utils/generateThumbnail';
 
 interface SharedRendererContextType {
   mountTo: (
@@ -18,12 +19,14 @@ interface SharedRendererContextType {
   ) => void;
   unmount: () => void;
   rotateModel: (yRad: number) => void;
+  renderFromGeometry: (geo: THREE.BufferGeometry) => Promise<Blob[]>;
 }
 
 const SharedRendererContext = createContext<SharedRendererContextType>({
   mountTo: () => {},
   unmount: () => {},
   rotateModel: () => {},
+  renderFromGeometry: () => Promise.resolve([]),
 });
 
 export function useSharedRenderer() {
@@ -31,6 +34,8 @@ export function useSharedRenderer() {
 }
 
 export function SharedRendererProvider({ children }: { children: ReactNode }) {
+  // Separate renderer for preview generation (never attached to DOM)
+  const previewRendererRef  = useRef<THREE.WebGLRenderer | null>(null);
   const rendererRef         = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef           = useRef<THREE.PerspectiveCamera | null>(null);
   const sceneRef            = useRef<THREE.Scene | null>(null);
@@ -85,6 +90,8 @@ export function SharedRendererProvider({ children }: { children: ReactNode }) {
       stopAnimation();
       renderer.dispose();
       if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      previewRendererRef.current?.dispose();
+      previewRendererRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -327,6 +334,19 @@ export function SharedRendererProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  // ── Preview rendering from geometry (used by import review tools) ────────────
+
+  async function renderFromGeometry(geo: THREE.BufferGeometry): Promise<Blob[]> {
+    // Lazy-create a persistent preview renderer (never added to DOM)
+    if (!previewRendererRef.current) {
+      previewRendererRef.current = makeRenderer();
+    }
+    const renderer = previewRendererRef.current;
+    const coloredBlobs = await renderColoredPasses(geo, renderer);
+    const stlBlob = await renderStlStylePass(geo, renderer);
+    return [...coloredBlobs, stlBlob];
+  }
+
   function unmount() {
     isMountedRef.current      = false;
     currentContainerRef.current = null;
@@ -351,7 +371,7 @@ export function SharedRendererProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SharedRendererContext.Provider value={{ mountTo, unmount, rotateModel }}>
+    <SharedRendererContext.Provider value={{ mountTo, unmount, rotateModel, renderFromGeometry }}>
       {children}
     </SharedRendererContext.Provider>
   );

@@ -4,7 +4,6 @@ using Microsoft.IdentityModel.Tokens;
 using ModelPrint.Api.Data;
 using ModelPrint.Api.Endpoints;
 using ModelPrint.Api.Repositories;
-using ModelPrint.Api.Seed;
 using ModelPrint.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,8 +39,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<ModelRepository>();
 builder.Services.AddScoped<TagRepository>();
 builder.Services.AddScoped<UserRepository>();
-builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddSingleton<FileStorageService>();
+builder.Services.AddHttpClient("import", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("3DModelPrint-Import/1.0");
+});
 
 builder.Services.AddCors(options =>
 {
@@ -60,14 +63,11 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Migrate DB and seed on startup
+// Migrate DB on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ModelPrintDbContext>();
     await db.Database.MigrateAsync();
-
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAsync();
 }
 
 // Serve uploaded files at /uploads/*
@@ -89,5 +89,6 @@ app.MapModelEndpoints();
 app.MapTagEndpoints();
 app.MapCategoryEndpoints();
 app.MapUserEndpoints();
+app.MapImportEndpoints();
 
 app.Run();

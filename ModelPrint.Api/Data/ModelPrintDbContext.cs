@@ -7,6 +7,7 @@ public class ModelPrintDbContext(DbContextOptions<ModelPrintDbContext> options) 
 {
     public DbSet<Model3D> Models => Set<Model3D>();
     public DbSet<ModelImage> ModelImages => Set<ModelImage>();
+    public DbSet<ModelPart> ModelParts => Set<ModelPart>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<ModelTag> ModelTags => Set<ModelTag>();
     public DbSet<User> Users => Set<User>();
@@ -30,6 +31,12 @@ public class ModelPrintDbContext(DbContextOptions<ModelPrintDbContext> options) 
             .HasOne(i => i.Model)
             .WithMany(m => m.Images)
             .HasForeignKey(i => i.ModelId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ModelPart>()
+            .HasOne(p => p.Model)
+            .WithMany(m => m.Parts)
+            .HasForeignKey(p => p.ModelId)
             .OnDelete(DeleteBehavior.Cascade);
 
         b.Entity<Model3D>().Property(m => m.Title).HasMaxLength(200).IsRequired();

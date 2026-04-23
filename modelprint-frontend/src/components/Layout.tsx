@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import Footer from './Footer';
 
 export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -18,6 +19,7 @@ export default function Layout() {
         <main className="p-6">
           <Outlet />
         </main>
+        <Footer />
       </div>
     </div>
   );

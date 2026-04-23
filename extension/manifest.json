@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "3DModelPrint – MakerWorld Bridge",
+  "version": "0.1.0",
+  "description": "Extracts MakerWorld model metadata for 3DModelPrint",
+  "permissions": ["scripting", "tabs"],
+  "host_permissions": ["https://makerworld.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://makerworld.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "3DModelPrint Bridge"
+  },
+  "externally_connectable": {
+    "matches": ["http://localhost:5173/*"]
+  }
+}

@@ -2,32 +2,54 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary:    #141414;
-  --color-bg-secondary:  #1c1c1c;
+  /* Backgrounds */
+  --color-bg-primary:    #121212;
+  --color-bg-secondary:  #1d1a18;   /* faint warm cast on sidebar/panels */
   --color-bg-card:       #242424;
-  --color-bg-card-hover: #2e2e2e;
+  --color-bg-card-hover: #2b2b2b;
+
+  /* Text */
   --color-text-primary:  #f0f0f0;
-  --color-text-secondary:#b8b8b8;
-  --color-accent:        #e0e0e0;
-  --color-accent-hover:  #ffffff;
-  --color-highlight:     #c0c0c0;
-  --color-border:        #3a3a3a;
-  --color-input-bg:      #2b2b2b;
+  --color-text-secondary:#b8b0a3;
+
+  /* Warm accent palette */
+  --color-accent:        #80430E;
+  --color-accent-hover:  #A98759;   /* button hover */
+  --color-accent-mid:    #A98759;   /* sidebar borders, nav indicators */
+  --color-highlight:     #E2BE80;   /* active nav text, hero gradient, small details */
+
+  /* Borders / inputs */
+  --color-border:        #2e2e2e;
+  --color-input-bg:      #1c1c1c;
+
+  /* Status */
+  --color-success:       #4ade80;
+  --color-warning:       #E2BE80;
+  --color-error:         #f87171;
+
+  /* Selected state */
+  --color-selected:      #80430E;
+
   --font-sans: 'Plus Jakarta Sans', sans-serif;
 }
 
 [data-theme="light"] {
-  --color-bg-primary:    #f5f5f5;
-  --color-bg-secondary:  #ebebeb;
+  --color-bg-primary:    #f8f8f8;
+  --color-bg-secondary:  #f3ede6;   /* warm tint for sidebar/panels */
   --color-bg-card:       #ffffff;
-  --color-bg-card-hover: #f2f2f2;
-  --color-text-primary:  #1a1a1a;
-  --color-text-secondary:#555555;
-  --color-accent:        #1a1a1a;
-  --color-accent-hover:  #000000;
-  --color-highlight:     #444444;
-  --color-border:        #d6d6d6;
+  --color-bg-card-hover: #f5f0eb;
+  --color-text-primary:  #1e1410;   /* warm dark, not pure black */
+  --color-text-secondary:#7a6a58;   /* warm brown-grey, not blue-grey */
+  --color-accent:        #80430E;
+  --color-accent-hover:  #A98759;
+  --color-accent-mid:    #A98759;
+  --color-highlight:     #80430E;
+  --color-border:        #e5e5e5;
   --color-input-bg:      #ffffff;
+  --color-success:       #16a34a;
+  --color-warning:       #92400e;
+  --color-error:         #dc2626;
+  --color-selected:      #80430E;
 }
 
 body {

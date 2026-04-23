@@ -19,13 +19,6 @@ public static class ModelEndpoints
             return Results.Ok(models);
         });
 
-        // Returns seed records that the browser pipeline hasn't completed yet (FilePath == "")
-        group.MapGet("/pending-seeds", async (ModelRepository repo) =>
-        {
-            var models = await repo.GetPendingSeedsAsync();
-            return Results.Ok(models);
-        });
-
         group.MapGet("/{id:int}", async (int id, ModelRepository repo) =>
         {
             var model = await repo.GetByIdAsync(id);
@@ -147,60 +140,108 @@ public static class ModelEndpoints
             return Results.File(fullPath, contentType, Path.GetFileName(model.FilePath));
         }).RequireAuthorization();
 
+        group.MapGet("/{id:int}/files", async (int id, ModelRepository repo, FileStorageService fileStorage) =>
+        {
+            var model = await repo.GetByIdAsync(id);
+            if (model is null) return Results.NotFound();
+
+            var entries = new List<object>();
+
+            if (model.Parts.Count > 0)
+            {
+                // Package-imported model: expose parts in order
+                foreach (var part in model.Parts.OrderBy(p => p.SortOrder))
+                {
+                    var fullPath = fileStorage.GetFullPath(part.FilePath);
+                    long? size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : null;
+                    entries.Add(new
+                    {
+                        fileName = part.FileName,
+                        role = AssignFileRole(Path.GetExtension(part.FileName)),
+                        path = part.FilePath,
+                        sizeBytes = size,
+                    });
+                }
+
+                // Original archive if present
+                if (!string.IsNullOrEmpty(model.PackagePath))
+                {
+                    var originalDir = fileStorage.GetFullPath(Path.Combine(model.PackagePath, "original"));
+                    if (Directory.Exists(originalDir))
+                    {
+                        foreach (var zipFile in Directory.GetFiles(originalDir))
+                        {
+                            var pkgRel = $"{model.PackagePath}/original/{Path.GetFileName(zipFile)}";
+                            entries.Add(new
+                            {
+                                fileName = Path.GetFileName(zipFile),
+                                role = "archive",
+                                path = pkgRel,
+                                sizeBytes = (long?)new FileInfo(zipFile).Length,
+                            });
+                        }
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(model.FilePath))
+            {
+                // Direct-upload model: single file
+                var fullPath = fileStorage.GetFullPath(model.FilePath);
+                long? size = File.Exists(fullPath) ? new FileInfo(fullPath).Length : null;
+                entries.Add(new
+                {
+                    fileName = Path.GetFileName(model.FilePath),
+                    role = AssignFileRole(Path.GetExtension(model.FilePath)),
+                    path = model.FilePath,
+                    sizeBytes = size,
+                });
+            }
+
+            return Results.Ok(entries);
+        }).RequireAuthorization();
+
+        group.MapGet("/{id:int}/files/{*path}", async (int id, string path, ModelRepository repo, FileStorageService fileStorage) =>
+        {
+            var model = await repo.GetByIdAsync(id);
+            if (model is null) return Results.NotFound();
+
+            if (string.IsNullOrEmpty(path) || path.Contains("..") || Path.IsPathRooted(path))
+                return Results.BadRequest("Invalid path.");
+
+            // Validate path belongs to this model
+            bool allowed = false;
+            if (model.Parts.Count > 0 && !string.IsNullOrEmpty(model.PackagePath))
+            {
+                allowed = path.StartsWith($"packages/{id}/", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (!string.IsNullOrEmpty(model.FilePath))
+            {
+                allowed = string.Equals(path, model.FilePath, StringComparison.OrdinalIgnoreCase);
+            }
+
+            if (!allowed) return Results.Forbid();
+
+            var fullPath = fileStorage.GetFullPath(path);
+            if (!File.Exists(fullPath)) return Results.NotFound("File not found on disk.");
+
+            var contentType = Path.GetExtension(fullPath).ToLowerInvariant() switch
+            {
+                ".stl"  => "application/sla",
+                ".obj"  => "model/obj",
+                ".glb"  => "model/gltf-binary",
+                ".gltf" => "model/gltf+json",
+                ".zip"  => "application/zip",
+                _       => "application/octet-stream",
+            };
+
+            return Results.File(fullPath, contentType, Path.GetFileName(path));
+        }).RequireAuthorization();
+
         group.MapPost("/{id:int}/like", async (int id, ModelRepository repo) =>
         {
             if (!await repo.ExistsAsync(id)) return Results.NotFound();
             await repo.IncrementLikesAsync(id);
             return Results.Ok();
-        });
-
-        // Open endpoint for client-side thumbnail auto-generation (no auth required)
-        // Accepts cover + up to 4 gallery images (gallery0–3); gallery3 is the STL-style preview
-        group.MapPost("/{id:int}/seed-images", async (
-            int id, HttpRequest request,
-            ModelRepository repo, FileStorageService fileStorage) =>
-        {
-            if (!await repo.ExistsAsync(id)) return Results.NotFound();
-            var form = await request.ReadFormAsync();
-            var cover = form.Files.GetFile("cover");
-            if (cover is null) return Results.BadRequest("cover file is required.");
-
-            var images = new List<(string ImagePath, int SortOrder)>();
-            images.Add((await fileStorage.SaveGalleryImageAsync(cover), 0));
-            for (int i = 0; i < 4; i++)  // gallery0–3 (gallery3 = STL-style preview)
-            {
-                var gf = form.Files.GetFile($"gallery{i}");
-                if (gf is not null)
-                    images.Add((await fileStorage.SaveGalleryImageAsync(gf), i + 1));
-            }
-            await repo.ReplaceAllImagesAsync(id, images);
-            return Results.Ok(new { count = images.Count });
-        });
-
-        // Upload the browser-generated STL for a seed model (no auth required)
-        group.MapPost("/{id:int}/seed-file", async (
-            int id, HttpRequest request,
-            ModelRepository repo, FileStorageService fileStorage) =>
-        {
-            if (!await repo.ExistsAsync(id)) return Results.NotFound();
-            var form = await request.ReadFormAsync();
-            var file = form.Files.GetFile("file");
-            if (file is null) return Results.BadRequest("file is required.");
-            var filePath = await fileStorage.SaveModelFileAsync(file);
-            await repo.UpdateFilePathAsync(id, filePath);
-            return Results.Ok(new { filePath });
-        });
-
-        // Delete an incomplete seed record (FilePath == "") — no auth required.
-        // Cannot delete completed models (those with a real FilePath), so this is safe to expose openly.
-        group.MapDelete("/{id:int}/seed-cleanup", async (int id, ModelRepository repo) =>
-        {
-            var model = await repo.GetByIdAsync(id);
-            if (model is null) return Results.NotFound();
-            if (!string.IsNullOrEmpty(model.FilePath))
-                return Results.Conflict("Cannot cleanup a completed model record.");
-            await repo.DeleteAsync(id);
-            return Results.NoContent();
         });
 
         group.MapPost("/{id:int}/images", async (
@@ -228,6 +269,17 @@ public static class ModelEndpoints
             return Results.Ok(new { count = images.Count });
         }).RequireAuthorization();
     }
+
+    private static string AssignFileRole(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".stl"  => "stl",
+        ".obj"  => "obj",
+        ".glb"  => "glb",
+        ".gltf" => "gltf",
+        ".mtl"  => "mtl",
+        ".zip" or ".rar" or ".7z" => "archive",
+        _ => "other",
+    };
 
     private static async Task<bool> IsAdminAsync(HttpContext httpContext, UserRepository userRepo)
     {

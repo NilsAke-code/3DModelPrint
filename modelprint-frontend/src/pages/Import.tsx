@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Upload, Box, Info, ArrowRight, FileBox, Layers } from "lucide-react";
+import { Upload, Box, Info, ArrowRight, FileBox, Layers, Puzzle } from "lucide-react";
 
 const FORMATS = [
   {
@@ -43,22 +43,40 @@ export default function Import() {
         </p>
       </div>
 
-      {/* Primary CTA */}
-      <button
-        onClick={() => navigate("/library/upload")}
-        className="group relative flex items-center justify-between w-full rounded-2xl bg-bg-card border border-border px-6 py-5 hover:border-white/15 hover:bg-bg-card-hover hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/50 transition-all duration-200 text-left"
-      >
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-bg-secondary border border-border flex items-center justify-center shrink-0 group-hover:border-white/15 transition-colors">
-            <Upload size={20} className="text-text-secondary group-hover:text-text-primary transition-colors" />
+      {/* Entry CTAs */}
+      <div className="flex flex-col gap-3">
+        <button
+          onClick={() => navigate("/library/upload")}
+          className="group relative flex items-center justify-between w-full rounded-2xl bg-bg-card border border-border px-6 py-5 hover:border-white/15 hover:bg-bg-card-hover hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/50 transition-all duration-200 text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-bg-secondary border border-border flex items-center justify-center shrink-0 group-hover:border-white/15 transition-colors">
+              <Upload size={20} className="text-text-secondary group-hover:text-text-primary transition-colors" />
+            </div>
+            <div>
+              <p className="text-text-primary font-semibold text-base">Upload a file</p>
+              <p className="text-text-secondary text-sm mt-0.5">STL, OBJ, or GLB — with optional companion files</p>
+            </div>
           </div>
-          <div>
-            <p className="text-text-primary font-semibold text-base">Upload a file</p>
-            <p className="text-text-secondary text-sm mt-0.5">STL, OBJ, or GLB — with optional companion files</p>
+          <ArrowRight size={18} className="text-text-secondary group-hover:text-text-primary group-hover:translate-x-0.5 transition-all" />
+        </button>
+
+        <button
+          onClick={() => navigate("/library/import-makerworld")}
+          className="group relative flex items-center justify-between w-full rounded-2xl bg-bg-card border border-border px-6 py-5 hover:border-white/15 hover:bg-bg-card-hover hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-black/50 transition-all duration-200 text-left"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-bg-secondary border border-border flex items-center justify-center shrink-0 group-hover:border-white/15 transition-colors">
+              <Puzzle size={20} className="text-text-secondary group-hover:text-text-primary transition-colors" />
+            </div>
+            <div>
+              <p className="text-text-primary font-semibold text-base">Import from MakerWorld</p>
+              <p className="text-text-secondary text-sm mt-0.5">Uses a browser extension to extract from your logged-in session</p>
+            </div>
           </div>
-        </div>
-        <ArrowRight size={18} className="text-text-secondary group-hover:text-text-primary group-hover:translate-x-0.5 transition-all" />
-      </button>
+          <ArrowRight size={18} className="text-text-secondary group-hover:text-text-primary group-hover:translate-x-0.5 transition-all" />
+        </button>
+      </div>
 
       {/* Supported formats */}
       <div className="flex flex-col gap-3">

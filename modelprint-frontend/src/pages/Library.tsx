@@ -53,7 +53,7 @@ export default function Library() {
         </div>
         <button
           onClick={handleLogin}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-text-primary transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-accent-hover transition-colors"
         >
           <LogIn size={16} /> Sign in with Microsoft
         </button>
@@ -75,7 +75,7 @@ export default function Library() {
         </div>
         <Link
           to="/import"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-text-primary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-accent-hover transition-colors"
         >
           <Upload size={15} /> Import Model
         </Link>
@@ -106,7 +106,7 @@ export default function Library() {
           </div>
           <Link
             to="/import"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-text-primary transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-bg-primary font-semibold text-sm hover:bg-accent-hover transition-colors"
           >
             <Upload size={15} /> Import a model
           </Link>

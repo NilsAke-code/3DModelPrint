@@ -39,6 +39,7 @@ public class ModelRepository(ModelPrintDbContext db)
         var model = await db.Models
             .Include(m => m.ModelTags).ThenInclude(mt => mt.TagEntity)
             .Include(m => m.Images.OrderBy(i => i.SortOrder))
+            .Include(m => m.Parts.OrderBy(p => p.SortOrder))
             .FirstOrDefaultAsync(m => m.Id == id);
         if (model is not null)
             model.Tags = model.ModelTags.Select(mt => mt.TagEntity!.Name).ToList();
@@ -98,14 +99,30 @@ public class ModelRepository(ModelPrintDbContext db)
         await db.Models.Where(m => m.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.Likes, m => m.Likes + 1));
 
-    public async Task AddImageAsync(int modelId, string imagePath, int sortOrder)
+    public async Task AddImageAsync(int modelId, string imagePath, int sortOrder, string imageType = "generated")
     {
         db.ModelImages.Add(new ModelImage
         {
             ModelId = modelId, ImagePath = imagePath,
-            SortOrder = sortOrder, CreatedAt = DateTime.UtcNow
+            SortOrder = sortOrder, ImageType = imageType, CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
+    }
+
+    public async Task AddPartsAsync(IEnumerable<ModelPart> parts)
+    {
+        db.ModelParts.AddRange(parts);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task FinalizePackageAsync(int id, string filePath, string packagePath)
+    {
+        await db.Models.Where(m => m.Id == id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(m => m.FilePath, filePath)
+                .SetProperty(m => m.PackagePath, packagePath)
+                .SetProperty(m => m.Status, "ready")
+                .SetProperty(m => m.UpdatedAt, DateTime.UtcNow));
     }
 
     public async Task ReplaceAllImagesAsync(int modelId, IEnumerable<(string ImagePath, int SortOrder)> images)

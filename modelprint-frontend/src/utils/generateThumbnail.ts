@@ -173,7 +173,7 @@ function captureFrame(
   );
 }
 
-function makeRenderer(): THREE.WebGLRenderer {
+export function makeRenderer(): THREE.WebGLRenderer {
   const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   r.setSize(WIDTH, HEIGHT);
   r.setPixelRatio(PIXEL_RATIO);
@@ -245,17 +245,8 @@ export async function renderColoredPasses(
 export async function renderStlStylePass(
   geo: THREE.BufferGeometry,
   renderer: THREE.WebGLRenderer,
+  options?: { zUpCorrection?: boolean },
 ): Promise<Blob> {
-  // Measure the model's XZ footprint to size the bed proportionally.
-  const geoBox = new THREE.Box3().setFromBufferAttribute(
-    geo.attributes.position as THREE.BufferAttribute,
-  );
-  const geoSize = geoBox.getSize(new THREE.Vector3());
-
-  const BED_SCALE = 1.3;                                  // bed is 130% of model footprint
-  const bedW = Math.max(geoSize.x * BED_SCALE, 2);
-  const bedD = Math.max(geoSize.z * BED_SCALE, 2);
-
   // ── Scene: white background + bounded light-blue bed ─────────────────────
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#f8f8f8');
@@ -267,7 +258,7 @@ export async function renderStlStylePass(
   dir.castShadow = true;
   dir.shadow.mapSize.set(4096, 4096);
   dir.shadow.bias   = -0.0008;
-  dir.shadow.radius = 5;                                  // softer shadow edge
+  dir.shadow.radius = 5;
   const fill = new THREE.DirectionalLight('#fff8f0', 0.3);
   fill.position.set(-4, 2, -4);
   const rim  = new THREE.DirectionalLight('#e8f0ff', 0.8);
@@ -275,9 +266,28 @@ export async function renderStlStylePass(
   const amb  = new THREE.AmbientLight('#ffffff', 0.3);
   scene.add(hemi, dir, fill, rim, amb);
 
-  // Light-blue print-bed plane — only this surface receives the model shadow.
-  // Width and depth match the model footprint × BED_SCALE; y=0 so the model
-  // (already seated at y=0 by extractMergedGeometry) sits flush on it.
+  // Gray model mesh — geometry is never mutated.
+  // zUpCorrection applies a display-only rotation to correct Z-up STL files
+  // (common for Bambu/MakerWorld exports) without touching the stored file.
+  const mat  = new THREE.MeshStandardMaterial({ color: STL_PREVIEW_COLOR, metalness: 0, roughness: 0.75 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  if (options?.zUpCorrection) {
+    mesh.rotation.x = -Math.PI / 2;
+  }
+  scene.add(mesh);
+  mesh.updateMatrixWorld(true);
+
+  // Compute world-space bounds after any rotation — used for bed sizing and seating.
+  const preBounds = new THREE.Box3().setFromObject(mesh);
+  const preSize   = preBounds.getSize(new THREE.Vector3());
+  const preCenter = preBounds.getCenter(new THREE.Vector3());
+
+  const BED_SCALE = 1.3;
+  const bedW = Math.max(preSize.x * BED_SCALE, 2);
+  const bedD = Math.max(preSize.z * BED_SCALE, 2);
+
+  // Light-blue print-bed plane sized to the post-rotation XZ footprint.
   const bedMat = new THREE.MeshStandardMaterial({ color: '#cce0f0', roughness: 1.0, metalness: 0 });
   const bed = new THREE.Mesh(new THREE.PlaneGeometry(bedW, bedD), bedMat);
   bed.rotation.x = -Math.PI / 2;
@@ -285,20 +295,17 @@ export async function renderStlStylePass(
   bed.receiveShadow = true;
   scene.add(bed);
 
-  // Fine grid overlay — helps the viewer read the bed as a print surface.
-  // Divisions scale with bed size so cell size stays visually consistent (~0.5 unit).
+  // Fine grid overlay — divisions scale so cell size stays ~0.5 unit.
   const gridDivs = Math.max(4, Math.round(Math.max(bedW, bedD) / 0.5));
   const grid = new THREE.GridHelper(Math.max(bedW, bedD), gridDivs, '#99bbcc', '#99bbcc');
   (grid.material as THREE.LineBasicMaterial).transparent = true;
   (grid.material as THREE.LineBasicMaterial).opacity = 0.45;
-  grid.position.set(0, 0.001, 0); // 1 mm above bed to avoid z-fighting
+  grid.position.set(0, 0.001, 0);
   scene.add(grid);
 
-  // Gray model mesh
-  const mat  = new THREE.MeshStandardMaterial({ color: STL_PREVIEW_COLOR, metalness: 0, roughness: 0.75 });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.castShadow = true;
-  scene.add(mesh);
+  // Seat mesh on bed: center XZ and place bottom at Y=0 using world-space bounds.
+  mesh.position.set(-preCenter.x, -preBounds.min.y, -preCenter.z);
+  mesh.updateMatrixWorld(true);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
   const bounds = new THREE.Box3().setFromObject(mesh);

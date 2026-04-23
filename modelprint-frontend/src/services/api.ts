@@ -1,6 +1,6 @@
 import { apiRequest } from "../auth/authConfig";
 import { msalInstance } from "../auth/AuthProvider";
-import type { Model3D, Tag, UserInfo, AdminStats } from "../types";
+import type { Model3D, ModelFileEntry, Tag, UserInfo, AdminStats } from "../types";
 
 const BASE = "/api";
 
@@ -97,6 +97,70 @@ export function getModelFileUrl(model: Model3D): string | null {
 
 // ===== AUTH REQUIRED endpoints =====
 
+// ===== IMPORT SESSION (used by MakerWorld import) =====
+
+export interface ImportFile {
+  name: string;
+  relativePath: string;
+  role: "stl" | "obj" | "glb" | "gltf" | "mtl" | "texture" | "source-image" | "archive" | "document" | "other";
+}
+
+export interface ImportSession {
+  sessionId: string;
+  detectedType: string;
+  files: ImportFile[];
+  expiresAt: string;
+}
+
+export async function createImportSession(url: string, sourceImages?: string[]): Promise<ImportSession> {
+  const res = await authFetch(`${BASE}/import/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, sourceImages: sourceImages ?? [] }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const code = body?.error as string | undefined;
+    const messages: Record<string, string> = {
+      invalid_url: "The URL is not valid.",
+      domain_not_allowed: "That domain is not in the allowed list.",
+      url_fetch_failed: "Could not download the file. The URL may have expired.",
+      unsupported_format: "Unsupported file format.",
+      no_model_in_archive: "No supported 3D model found inside the archive.",
+      invalid_archive: "The archive contains unsafe file paths.",
+      file_too_large: "The file exceeds the 200 MB download limit.",
+      extracted_size_exceeded: "The extracted archive exceeds the 400 MB size limit.",
+    };
+    throw new Error(code ? (messages[code] ?? `Import failed (${code}).`) : "Import failed.");
+  }
+  return res.json();
+}
+
+export async function getImportSession(sessionId: string): Promise<ImportSession> {
+  const res = await authFetch(`${BASE}/import/session/${sessionId}`);
+  if (!res.ok) throw new Error(`Session not found or expired (${res.status})`);
+  return res.json();
+}
+
+export async function fetchImportSessionFile(sessionId: string, relativePath: string): Promise<Blob> {
+  const res = await authFetch(`${BASE}/import/session/${sessionId}/file/${relativePath}`);
+  if (!res.ok) throw new Error(`Failed to fetch session file: ${relativePath}`);
+  return res.blob();
+}
+
+export async function deleteImportSession(sessionId: string): Promise<void> {
+  await authFetch(`${BASE}/import/session/${sessionId}`, { method: "DELETE" });
+}
+
+export async function saveImportPackage(formData: FormData): Promise<{ id: number }> {
+  const res = await authFetch(`${BASE}/import/package`, { method: "POST", body: formData });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? body?.detail ?? "Failed to save package.");
+  }
+  return res.json();
+}
+
 export async function createModel(formData: FormData): Promise<{ id: number }> {
   const res = await authFetch(`${BASE}/models`, { method: "POST", body: formData });
   if (!res.ok) throw new Error("Failed to create model");
@@ -123,6 +187,18 @@ export async function deleteModel(id: number) {
 export async function downloadModel(id: number): Promise<Blob> {
   const res = await authFetch(`${BASE}/models/${id}/download`);
   if (!res.ok) throw new Error("Failed to download model");
+  return res.blob();
+}
+
+export async function fetchModelFiles(id: number): Promise<ModelFileEntry[]> {
+  const res = await authFetch(`${BASE}/models/${id}/files`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function downloadModelFile(id: number, path: string): Promise<Blob> {
+  const res = await authFetch(`${BASE}/models/${id}/files/${path}`);
+  if (!res.ok) throw new Error("Failed to download file");
   return res.blob();
 }
 
@@ -168,49 +244,6 @@ export async function fetchAdminModels(search?: string): Promise<Model3D[]> {
 export async function adminDeleteModel(id: number): Promise<void> {
   const res = await authFetch(`${BASE}/admin/models/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete model");
-}
-
-export async function uploadSeedModelImages(
-  modelId: number,
-  cover: Blob,
-  gallery: Blob[]
-): Promise<void> {
-  const formData = new FormData();
-  formData.append("cover", cover, "cover.webp");
-  gallery.forEach((blob, i) =>
-    formData.append(`gallery${i}`, blob, `angle-${i + 1}.webp`)
-  );
-  const res = await fetch(`${BASE}/models/${modelId}/seed-images`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error(`Failed to upload seed images for model ${modelId}`);
-}
-
-/** Upload the browser-generated STL for a seed model and patch FilePath on the server. */
-export async function uploadSeedFile(modelId: number, stlBlob: Blob): Promise<void> {
-  const formData = new FormData();
-  formData.append('file', stlBlob, 'model.stl');
-  const res = await fetch(`${BASE}/models/${modelId}/seed-file`, {
-    method: 'POST',
-    body: formData,
-  });
-  if (!res.ok) throw new Error(`Failed to upload seed file for model ${modelId}`);
-}
-
-/** Delete an incomplete seed record (FilePath == ""). Safe to call without auth. */
-export async function fetchPendingSeeds(): Promise<Model3D[]> {
-  const res = await fetch(`${BASE}/models/pending-seeds`);
-  if (!res.ok) throw new Error('Failed to fetch pending seed models');
-  return res.json();
-}
-
-export async function seedCleanup(modelId: number): Promise<void> {
-  const res = await fetch(`${BASE}/models/${modelId}/seed-cleanup`, { method: 'DELETE' });
-  // 404 = already gone; Conflict = already completed — both are acceptable, not errors
-  if (!res.ok && res.status !== 404 && res.status !== 409) {
-    throw new Error(`seed-cleanup failed for model ${modelId}: ${res.status}`);
-  }
 }
 
 export async function uploadModelImages(

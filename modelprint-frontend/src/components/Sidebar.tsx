@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Box, Library, Menu, X, PanelLeftClose, PanelLeftOpen, Shield, Upload } from 'lucide-react';
+import { Home, Library, Menu, X, PanelLeftClose, PanelLeftOpen, Shield, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 
@@ -15,8 +15,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
       isActive
-        ? 'bg-accent/10 text-text-primary border-l-2 border-accent/40'
-        : 'text-text-secondary hover:text-text-primary hover:bg-bg-card border-l-2 border-transparent'
+        ? 'bg-accent/10 text-highlight border-l-2 border-accent'
+        : 'text-text-secondary hover:text-text-primary hover:bg-accent/5 border-l-2 border-transparent'
     }`;
 
   const nav = (
@@ -27,7 +27,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
         <button
           onClick={onToggle}
-          className="hidden md:flex p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-card transition-colors"
+          className="hidden md:flex p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-accent/5 transition-colors"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
@@ -37,10 +37,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <NavLink to="/" className={linkClass} onClick={() => setMobileOpen(false)}>
           <Home size={18} />
           {!collapsed && 'Home'}
-        </NavLink>
-        <NavLink to="/models" className={linkClass} onClick={() => setMobileOpen(false)}>
-          <Box size={18} />
-          {!collapsed && 'All Models'}
         </NavLink>
         <div className="border-t border-border my-3 mx-2" />
         {!collapsed && (

@@ -3,7 +3,28 @@ export interface ModelImage {
   modelId: number;
   imagePath: string;
   sortOrder: number;
+  imageType: "source" | "generated" | "stl-preview";
   createdAt: string;
+}
+
+export interface ModelPart {
+  id: number;
+  modelId: number;
+  fileName: string;
+  filePath: string;
+  previewImagePath?: string;
+  triangleCount: number;
+  width: number;
+  height: number;
+  depth: number;
+  sortOrder: number;
+}
+
+export interface ModelFileEntry {
+  fileName: string;
+  role: "stl" | "obj" | "glb" | "gltf" | "mtl" | "archive" | "other";
+  path: string;
+  sizeBytes?: number;
 }
 
 export interface Model3D {
@@ -20,8 +41,11 @@ export interface Model3D {
   createdAt: string;
   updatedAt: string;
   isExploreModel: boolean;
+  packagePath?: string;
+  sourceUrl?: string;
   tags: string[];
   images: ModelImage[];
+  parts: ModelPart[];
 }
 
 export interface Tag {
