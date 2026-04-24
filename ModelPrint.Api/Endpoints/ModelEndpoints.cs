@@ -237,12 +237,12 @@ public static class ModelEndpoints
             return Results.File(fullPath, contentType, Path.GetFileName(path));
         }).RequireAuthorization();
 
-        group.MapPost("/{id:int}/like", async (int id, ModelRepository repo) =>
+        group.MapPost("/{id:int}/favorite", async (int id, ModelRepository repo) =>
         {
             if (!await repo.ExistsAsync(id)) return Results.NotFound();
-            await repo.IncrementLikesAsync(id);
-            return Results.Ok();
-        });
+            var isFavorite = await repo.ToggleFavoriteAsync(id);
+            return Results.Ok(new { isFavorite });
+        }).RequireAuthorization();
 
         group.MapPost("/{id:int}/images", async (
             int id, HttpRequest request,

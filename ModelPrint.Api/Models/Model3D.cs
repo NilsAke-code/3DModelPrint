@@ -15,6 +15,7 @@ public class Model3D
     public string AuthorName { get; set; } = "";
     public int Downloads { get; set; }
     public int Likes { get; set; }
+    public bool IsFavorite { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsExploreModel { get; set; }

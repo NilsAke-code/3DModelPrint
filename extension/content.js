@@ -92,6 +92,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const designExtension = design.designExtension ?? null;
   const defaultInstanceId = design.defaultInstanceId ?? null;
 
+  const categories = Array.isArray(design.categories)
+    ? design.categories.map((c) => ({ id: c.id ?? 0, name: c.name ?? "", slug: c.slug ?? undefined }))
+    : [];
   const instances = Array.isArray(design.instances)
     ? design.instances.map((inst) => ({
         id: inst.id ?? null,
@@ -102,35 +105,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }))
     : [];
 
-  // ── Debug: dump all media-bearing fields so we can see the real structure ──
-  const DEBUG_MEDIA_KEYS = [
-    "pictures", "images", "gallery", "coverList", "picList",
-    "designPictures", "modelPictures", "renderImages", "previewList",
-  ];
-  console.log("[MW debug] coverUrl:", design.coverUrl);
-  console.log("[MW debug] coverLandscape:", design.coverLandscape);
-  console.log("[MW debug] coverPortrait:", design.coverPortrait);
-  for (const k of DEBUG_MEDIA_KEYS) {
-    const v = design[k];
-    if (v === undefined) { console.log(`[MW debug] design.${k}: (absent)`); continue; }
-    if (!Array.isArray(v)) { console.log(`[MW debug] design.${k}: (not array)`, v); continue; }
-    console.log(`[MW debug] design.${k}: ${v.length} items`);
-    v.slice(0, 5).forEach((item, i) => console.log(`  [${i}]`, JSON.stringify(item)));
-  }
-  if (Array.isArray(design.instances)) {
-    design.instances.forEach((inst, ii) => {
-      console.log(`[MW debug] instance[${ii}] coverUrl:`, inst.coverUrl);
-      for (const k of ["pictures", "images", "gallery", "coverList", "picList"]) {
-        const v = inst[k];
-        if (!Array.isArray(v)) continue;
-        console.log(`[MW debug] instance[${ii}].${k}: ${v.length} items`);
-        v.slice(0, 3).forEach((item, i) => console.log(`    [${i}]`, JSON.stringify(item)));
-      }
-    });
-  }
-  // ── End debug ──
-
-  // Collect all available source image URLs (deduped, https only)
+  // Collect all available source image URLs (deduped by filename, https only)
   const sourceImages = [];
   const seen = new Set();
   function addImg(url) {
@@ -157,9 +132,52 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   }
 
-  addImg(coverLandscape);
-  addImg(coverUrl);
-  addImg(coverPortrait);
+  // ── Gallery DOM scrape (live tab — rendered DOM is available) ────────────
+  const GALLERY_SELECTORS = [
+    ".swiper-wrapper",
+    '[class*="gallery"]',
+    '[class*="carousel"]',
+    '[class*="slider"]',
+  ];
+  const CDN_RE_CONTENT  = /makerworld\.com|bambu-lab\.com/i;
+  const SKIP_RE_CONTENT = /avatar|icon|logo|badge|profile/i;
+
+  function parseSrcset(srcset) {
+    if (!srcset) return null;
+    let best = null, bestW = -1;
+    for (const part of srcset.split(",")) {
+      const [url, desc] = part.trim().split(/\s+/);
+      if (!url) continue;
+      const w = desc ? parseInt(desc, 10) : 0;
+      if (w > bestW) { bestW = w; best = url; }
+    }
+    return best;
+  }
+
+  let galleryContainer = null;
+  for (const sel of GALLERY_SELECTORS) {
+    const el = document.querySelector(sel);
+    if (el) { galleryContainer = el; break; }
+  }
+  console.log("[MW gallery] container:", galleryContainer
+    ? (galleryContainer.className || galleryContainer.tagName) : "NONE");
+
+  if (galleryContainer) {
+    for (const img of galleryContainer.querySelectorAll("img")) {
+      if (img.naturalWidth > 0 && img.naturalWidth < 200) continue;
+      if (SKIP_RE_CONTENT.test(img.src)) continue;
+      const ss = img.getAttribute("srcset");
+      if (ss) addImg(parseSrcset(ss) || "");
+      addImg(img.currentSrc || img.src || img.getAttribute("src") || "");
+    }
+    for (const source of galleryContainer.querySelectorAll("source[srcset]")) {
+      addImg(parseSrcset(source.getAttribute("srcset")) || "");
+    }
+    for (const vid of galleryContainer.querySelectorAll("video[poster]")) {
+      addImg(vid.getAttribute("poster") || "");
+    }
+    console.log("[MW gallery] images collected from container:", sourceImages.length);
+  }
 
   const ARRAY_KEYS = ["pictures", "images", "gallery", "coverList", "picList",
                       "designPictures", "modelPictures", "renderImages", "previewList"];
@@ -180,8 +198,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   }
 
-  console.log("[MW extract] sourceImages collected:", sourceImages.length);
-  sourceImages.forEach((u, i) => console.log(`  [${i}]`, u));
   sendResponse({
     title,
     summary,
@@ -192,6 +208,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     defaultInstanceId,
     instances,
     sourceImages,
+    categories,
   });
   return true;
 });

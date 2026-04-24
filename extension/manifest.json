@@ -3,7 +3,7 @@
   "name": "3DModelPrint – MakerWorld Bridge",
   "version": "0.1.0",
   "description": "Extracts MakerWorld model metadata for 3DModelPrint",
-  "permissions": ["scripting", "tabs"],
+  "permissions": ["scripting", "tabs", "downloads"],
   "host_permissions": ["https://makerworld.com/*"],
   "background": {
     "service_worker": "background.js"

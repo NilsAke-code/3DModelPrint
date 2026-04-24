@@ -10,7 +10,7 @@ import {
 import { generateModelGallery } from '../utils/generateThumbnail';
 import type { AdminStats, UserInfo, Model3D } from '../types';
 import {
-  BarChart3, Users, Box, Settings, Download, Heart,
+  BarChart3, Users, Box,
   Trash2, Search, TrendingUp, ImagePlus, Loader2,
 } from 'lucide-react';
 
@@ -18,7 +18,6 @@ const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'users',     label: 'Users',     icon: Users },
   { id: 'models',    label: 'Models',    icon: Box },
-  { id: 'settings',  label: 'Settings',  icon: Settings },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -61,7 +60,6 @@ export default function Admin() {
       {activeTab === 'dashboard' && <DashboardTab />}
       {activeTab === 'users'     && <UsersTab />}
       {activeTab === 'models'    && <ModelsTab />}
-      {activeTab === 'settings'  && <SettingsTab />}
     </div>
   );
 }
@@ -80,39 +78,25 @@ function DashboardTab() {
   if (!stats) return <div className="text-text-secondary py-8">Failed to load stats.</div>;
 
   const cards = [
-    { label: 'Total Models',    value: stats.totalModels,    delta: stats.modelsLast7Days, icon: Box,      color: 'text-accent' },
-    { label: 'Total Users',     value: stats.totalUsers,     delta: stats.usersLast7Days,  icon: Users,    color: 'text-highlight' },
-    { label: 'Total Downloads', value: stats.totalDownloads, delta: null,                  icon: Download, color: 'text-accent' },
-    { label: 'Total Likes',     value: stats.totalLikes,     delta: null,                  icon: Heart,    color: 'text-accent' },
+    { label: 'Total Models', value: stats.totalModels, delta: stats.modelsLast7Days, icon: Box,   color: 'text-accent' },
+    { label: 'Total Users',  value: stats.totalUsers,  delta: stats.usersLast7Days,  icon: Users, color: 'text-highlight' },
   ];
 
   return (
-    <div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {cards.map((card) => (
-          <div key={card.label} className="bg-bg-card border border-border rounded-xl p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-text-secondary text-sm">{card.label}</span>
-              <card.icon size={20} className={card.color} />
-            </div>
-            <div className="text-2xl font-bold text-text-primary">{card.value.toLocaleString()}</div>
-            {card.delta !== null && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-accent">
-                <TrendingUp size={12} />
-                +{card.delta} last 7 days
-              </div>
-            )}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {cards.map((card) => (
+        <div key={card.label} className="bg-bg-card border border-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text-secondary text-sm">{card.label}</span>
+            <card.icon size={20} className={card.color} />
           </div>
-        ))}
-      </div>
-
-      <div className="bg-bg-card border border-border rounded-xl p-5">
-        <h3 className="text-lg font-semibold text-text-primary mb-1">Overview</h3>
-        <p className="text-text-secondary text-sm">
-          {stats.modelsLast30Days} models uploaded in the last 30 days.{' '}
-          {stats.usersLast30Days} new users joined.
-        </p>
-      </div>
+          <div className="text-2xl font-bold text-text-primary">{card.value.toLocaleString()}</div>
+          <div className="flex items-center gap-1 mt-1 text-xs text-accent">
+            <TrendingUp size={12} />
+            +{card.delta} last 7 days
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -316,7 +300,6 @@ function ModelsTab() {
                 <th className="px-5 py-3 font-medium">Author</th>
                 <th className="px-5 py-3 font-medium">Category</th>
                 <th className="px-5 py-3 font-medium">Downloads</th>
-                <th className="px-5 py-3 font-medium">Likes</th>
                 <th className="px-5 py-3 font-medium">Actions</th>
               </tr>
             </thead>
@@ -336,7 +319,6 @@ function ModelsTab() {
                   <td className="px-5 py-3 text-text-secondary">{model.authorName}</td>
                   <td className="px-5 py-3 text-text-secondary">{model.category}</td>
                   <td className="px-5 py-3 text-text-secondary">{model.downloads}</td>
-                  <td className="px-5 py-3 text-text-secondary">{model.likes}</td>
                   <td className="px-5 py-3">
                     {confirmDelete === model.id ? (
                       <div className="flex items-center gap-2">
@@ -373,16 +355,3 @@ function ModelsTab() {
   );
 }
 
-// ===== SETTINGS TAB =====
-
-function SettingsTab() {
-  return (
-    <div className="bg-bg-card border border-border rounded-xl p-8 text-center">
-      <Settings size={40} className="mx-auto text-text-secondary mb-4" />
-      <h3 className="text-lg font-semibold text-text-primary mb-2">Site Settings</h3>
-      <p className="text-text-secondary text-sm">
-        Site configuration, featured models, and announcements will be available here soon.
-      </p>
-    </div>
-  );
-}

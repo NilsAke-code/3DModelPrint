@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Library, Menu, X, PanelLeftClose, PanelLeftOpen, Shield, Upload } from 'lucide-react';
+import { Home, Library, Menu, X, PanelLeftClose, PanelLeftOpen, Settings, Shield, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 
@@ -49,6 +49,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <NavLink to="/import" className={linkClass} onClick={() => setMobileOpen(false)}>
           <Upload size={18} />
           {!collapsed && 'Import'}
+        </NavLink>
+        <NavLink to="/settings" className={linkClass} onClick={() => setMobileOpen(false)}>
+          <Settings size={18} />
+          {!collapsed && 'Settings'}
         </NavLink>
         {isAdmin && (
           <>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMsal, useIsAuthenticated } from "@azure/msal-react";
 import { loginRequest } from "../auth/authConfig";
+import { useUser } from "../contexts/UserContext";
 
 export default function TopBar() {
   const [query, setQuery] = useState("");
@@ -36,6 +37,7 @@ export default function TopBar() {
 
   const [theme, toggleTheme] = useTheme();
   const userName = accounts[0]?.name ?? accounts[0]?.username;
+  const { user } = useUser();
 
   return (
     <header className="sticky top-0 z-20 flex items-center gap-4 px-6 py-3 bg-bg-secondary/90 backdrop-blur-md border-b border-border">
@@ -65,12 +67,24 @@ export default function TopBar() {
         </button>
         {isAuthenticated ? (
           <>
-            <div className="flex items-center gap-2 text-sm text-text-secondary">
-              <User size={16} className="text-accent" />
+            <button
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
+              title="Settings"
+            >
+              {user?.profilePictureUrl ? (
+                <img
+                  src={user.profilePictureUrl}
+                  alt={userName}
+                  className="w-7 h-7 rounded-full object-cover border border-border"
+                />
+              ) : (
+                <User size={16} className="text-accent" />
+              )}
               <span className="hidden sm:inline max-w-[150px] truncate">
                 {userName}
               </span>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg border border-border text-text-secondary hover:text-text-primary hover:border-accent/50 transition-colors"

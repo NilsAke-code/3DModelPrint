@@ -4,7 +4,7 @@ import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { fetchModels, deleteModel, getThumbnailUrl } from "../services/api";
 import { loginRequest } from "../auth/authConfig";
 import type { Model3D } from "../types";
-import { Plus, Trash2, Download, Heart, LogIn, FolderOpen, Upload, Box } from "lucide-react";
+import { Trash2, LogIn, FolderOpen, Upload, Box, Star } from "lucide-react";
 
 export default function Library() {
   const [models, setModels] = useState<Model3D[]>([]);
@@ -155,10 +155,11 @@ function LibraryCard({ model, onDelete }: { model: Model3D; onDelete: (id: numbe
           <h3 className="text-sm font-semibold text-text-primary truncate leading-tight">
             {model.title}
           </h3>
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-text-secondary">
-            <span className="flex items-center gap-1"><Download size={11} /> {model.downloads.toLocaleString()}</span>
-            <span className="flex items-center gap-1"><Heart size={11} /> {model.likes.toLocaleString()}</span>
-          </div>
+          {model.isFavorite && (
+            <div className="mt-1.5">
+              <Star size={11} className="text-yellow-400" fill="currentColor" />
+            </div>
+          )}
         </div>
       </Link>
 

@@ -7,6 +7,7 @@ import Upload from './pages/Upload';
 import Import from './pages/Import';
 import MakerWorldImport from './pages/MakerWorldImport';
 import Admin from './pages/Admin';
+import Settings from './pages/Settings';
 import { SharedRendererProvider } from './contexts/SharedModelRenderer';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/library/import-makerworld" element={<MakerWorldImport />} />
             <Route path="/import" element={<Import />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>

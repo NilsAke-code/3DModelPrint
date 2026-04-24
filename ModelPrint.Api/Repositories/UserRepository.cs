@@ -19,7 +19,7 @@ public class UserRepository(ModelPrintDbContext db, IConfiguration config)
         var user = await db.Users.FirstOrDefaultAsync(u => u.MicrosoftId == microsoftId);
         if (user is not null)
         {
-            user.DisplayName = displayName;
+            // Do not overwrite a custom display name — only update last login
             user.LastLoginAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return user;
@@ -29,7 +29,9 @@ public class UserRepository(ModelPrintDbContext db, IConfiguration config)
         if (user is not null)
         {
             user.MicrosoftId = microsoftId;
-            user.DisplayName = displayName;
+            // Preserve any custom display name set by the user
+            if (string.IsNullOrEmpty(user.DisplayName))
+                user.DisplayName = displayName;
             user.LastLoginAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return user;
@@ -51,6 +53,14 @@ public class UserRepository(ModelPrintDbContext db, IConfiguration config)
 
     public Task<List<User>> GetAllAsync() =>
         db.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
+
+    public async Task UpdateProfileAsync(int userId, string displayName) =>
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.DisplayName, displayName));
+
+    public async Task UpdateAvatarAsync(int userId, string path) =>
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.ProfilePicturePath, path));
 
     public async Task UpdateRoleAsync(int userId, int role) =>
         await db.Users.Where(u => u.Id == userId)

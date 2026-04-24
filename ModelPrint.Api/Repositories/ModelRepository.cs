@@ -99,6 +99,15 @@ public class ModelRepository(ModelPrintDbContext db)
         await db.Models.Where(m => m.Id == id)
             .ExecuteUpdateAsync(s => s.SetProperty(m => m.Likes, m => m.Likes + 1));
 
+    public async Task<bool> ToggleFavoriteAsync(int id)
+    {
+        var model = await db.Models.FindAsync(id);
+        if (model is null) return false;
+        model.IsFavorite = !model.IsFavorite;
+        await db.SaveChangesAsync();
+        return model.IsFavorite;
+    }
+
     public async Task AddImageAsync(int modelId, string imagePath, int sortOrder, string imageType = "generated")
     {
         db.ModelImages.Add(new ModelImage

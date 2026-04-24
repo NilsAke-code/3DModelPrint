@@ -21,9 +21,46 @@ public static class UserEndpoints
             return Results.Ok(new UserResponse
             {
                 Id = user.Id, Email = user.Email,
-                DisplayName = user.DisplayName, Role = user.Role
+                DisplayName = user.DisplayName, Role = user.Role,
+                ProfilePictureUrl = user.ProfilePicturePath is not null
+                    ? $"/uploads/{user.ProfilePicturePath}"
+                    : null,
             });
         }).RequireAuthorization();
+
+        app.MapPut("/api/users/me", async (UpdateProfileRequest request, HttpContext httpContext, UserRepository userRepo) =>
+        {
+            var (microsoftId, _, _) = ExtractUserClaims(httpContext);
+            if (microsoftId is null) return Results.Unauthorized();
+
+            var user = await userRepo.GetByMicrosoftIdAsync(microsoftId);
+            if (user is null) return Results.NotFound();
+
+            var displayName = request.DisplayName.Trim();
+            if (string.IsNullOrEmpty(displayName)) return Results.BadRequest("Display name cannot be empty.");
+
+            await userRepo.UpdateProfileAsync(user.Id, displayName);
+            return Results.NoContent();
+        }).RequireAuthorization();
+
+        app.MapPost("/api/users/me/avatar", async (IFormFile file, HttpContext httpContext, UserRepository userRepo, FileStorageService fileStorage) =>
+        {
+            var (microsoftId, _, _) = ExtractUserClaims(httpContext);
+            if (microsoftId is null) return Results.Unauthorized();
+
+            var user = await userRepo.GetByMicrosoftIdAsync(microsoftId);
+            if (user is null) return Results.NotFound();
+
+            if (file.Length > 5 * 1024 * 1024) return Results.BadRequest("Avatar must be under 5 MB.");
+
+            if (!string.IsNullOrEmpty(user.ProfilePicturePath))
+                fileStorage.DeleteFile(user.ProfilePicturePath);
+
+            var relativePath = await fileStorage.SaveAvatarAsync(user.Id, file);
+            await userRepo.UpdateAvatarAsync(user.Id, relativePath);
+
+            return Results.Ok(new { url = $"/uploads/{relativePath}" });
+        }).RequireAuthorization().DisableAntiforgery();
 
         var admin = app.MapGroup("/api/admin").RequireAuthorization();
 

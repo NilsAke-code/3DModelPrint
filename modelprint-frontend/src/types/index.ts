@@ -38,6 +38,7 @@ export interface Model3D {
   authorName: string;
   downloads: number;
   likes: number;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
   isExploreModel: boolean;
@@ -58,6 +59,7 @@ export interface UserInfo {
   email: string;
   displayName: string;
   role: number;
+  profilePictureUrl?: string;
 }
 
 export interface AdminStats {

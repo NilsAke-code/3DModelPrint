@@ -13,6 +13,7 @@ public class FileStorageService
         Directory.CreateDirectory(Path.Combine(_uploadPath, "gallery"));
         Directory.CreateDirectory(Path.Combine(_uploadPath, "temp"));
         Directory.CreateDirectory(Path.Combine(_uploadPath, "packages"));
+        Directory.CreateDirectory(Path.Combine(_uploadPath, "avatars"));
     }
 
     // ── Temp session helpers ──────────────────────────────────────────────────
@@ -85,6 +86,19 @@ public class FileStorageService
         $"packages/{modelId}/{subfolder}/{filename}";
 
     // ── Permanent model / gallery helpers ─────────────────────────────────────
+
+    public async Task<string> SaveAvatarAsync(int userId, IFormFile file)
+    {
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        string[] allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+        if (!allowed.Contains(ext)) ext = ".jpg";
+
+        var fileName = $"{userId}{ext}";
+        var filePath = Path.Combine(_uploadPath, "avatars", fileName);
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+        return $"avatars/{fileName}";
+    }
 
     public async Task<string> SaveModelFileAsync(IFormFile file)
     {

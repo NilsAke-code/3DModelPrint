@@ -60,36 +60,11 @@ async function extractFromUrl(targetUrl) {
           : [],
       }))
     : [];
+  const categories = Array.isArray(design.categories)
+    ? design.categories.map((c) => ({ id: c.id ?? 0, name: c.name ?? "", slug: c.slug ?? undefined }))
+    : [];
 
-  // ── Debug: dump all media-bearing fields so we can see the real structure ──
-  const DEBUG_MEDIA_KEYS = [
-    "pictures", "images", "gallery", "coverList", "picList",
-    "designPictures", "modelPictures", "renderImages", "previewList",
-  ];
-  console.log("[MW debug] coverUrl:", design.coverUrl);
-  console.log("[MW debug] coverLandscape:", design.coverLandscape);
-  console.log("[MW debug] coverPortrait:", design.coverPortrait);
-  for (const k of DEBUG_MEDIA_KEYS) {
-    const v = design[k];
-    if (v === undefined) { console.log(`[MW debug] design.${k}: (absent)`); continue; }
-    if (!Array.isArray(v)) { console.log(`[MW debug] design.${k}: (not array)`, v); continue; }
-    console.log(`[MW debug] design.${k}: ${v.length} items`);
-    v.slice(0, 5).forEach((item, i) => console.log(`  [${i}]`, JSON.stringify(item)));
-  }
-  if (Array.isArray(design.instances)) {
-    design.instances.forEach((inst, ii) => {
-      console.log(`[MW debug] instance[${ii}] coverUrl:`, inst.coverUrl);
-      for (const k of ["pictures", "images", "gallery", "coverList", "picList"]) {
-        const v = inst[k];
-        if (!Array.isArray(v)) continue;
-        console.log(`[MW debug] instance[${ii}].${k}: ${v.length} items`);
-        v.slice(0, 3).forEach((item, i) => console.log(`    [${i}]`, JSON.stringify(item)));
-      }
-    });
-  }
-  // ── End debug ──
-
-  // Collect all available source image URLs (deduped, https only)
+  // Collect all available source image URLs (deduped by filename, https only)
   const sourceImages = [];
   const seen = new Set();
   function addImg(url) {
@@ -139,9 +114,149 @@ async function extractFromUrl(targetUrl) {
     }
   }
 
-  console.log("[MW extract] sourceImages collected:", sourceImages.length);
-  sourceImages.forEach((u, i) => console.log(`  [${i}]`, u));
-  return { title, summary, coverUrl, coverLandscape, coverPortrait, designExtension, defaultInstanceId, instances, sourceImages };
+  // ── Gallery DOM extraction (primary source) ───────────────────────────────
+  // Scrape the rendered gallery container. Falls back to __NEXT_DATA__ URLs
+  // collected above if DOM extraction returns nothing.
+  let finalImages = sourceImages;
+  try {
+    const galleryUrls = await extractGalleryFromTab(targetUrl);
+    if (galleryUrls.length > 0) {
+      // Rebuild deduped list: gallery images first, then __NEXT_DATA__ as fill
+      const gallerySeen = new Set();
+      const galleryDeduped = [];
+      function addGallery(url) {
+        if (!url || !url.startsWith("https://")) return;
+        let key;
+        try { key = new URL(url).pathname.split("/").filter(Boolean).pop() || url; }
+        catch { key = url; }
+        if (gallerySeen.has(key)) return;
+        gallerySeen.add(key);
+        galleryDeduped.push(url);
+      }
+      for (const u of galleryUrls) addGallery(u);
+      finalImages = galleryDeduped;
+      console.log("[MW extract] final sourceImages (gallery primary):", finalImages.length);
+    } else {
+      console.log("[MW extract] gallery empty — using __NEXT_DATA__ fallback, count:", finalImages.length);
+    }
+  } catch (e) {
+    console.warn("[MW extract] gallery extraction error (using fallback):", e);
+  }
+  finalImages.forEach((u, i) => console.log(`  [MW extract] [${i}]`, u));
+
+  return { title, summary, coverUrl, coverLandscape, coverPortrait, designExtension, defaultInstanceId, instances, sourceImages: finalImages, categories };
+}
+
+// ── Gallery DOM extraction ────────────────────────────────────────────────────
+
+// Opens (or reuses) a MakerWorld tab, waits for it to render, then scrapes only
+// the main model gallery/carousel container — not the whole page.
+async function extractGalleryFromTab(targetUrl) {
+  let tabId, windowId, opened;
+  try {
+    ({ tabId, windowId, opened } = await findOrOpenTab(targetUrl));
+  } catch (e) {
+    console.warn("[MW gallery] tab open failed:", e);
+    return [];
+  }
+
+  // Wait 2 s after tab load for React hydration + lazy image loads.
+  await new Promise((r) => setTimeout(r, 2000));
+
+  let urls = [];
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      func: () => {
+        // ── Locate main gallery container ─────────────────────────────────────
+        // MakerWorld uses Swiper.js. The main product gallery is the first
+        // .swiper-wrapper on the page. Thumbnail strips (if any) sit below it
+        // and contain much smaller images — we filter those out by rendered size.
+        //
+        // Fallback cascade if Swiper is not found:
+        //   [class*="gallery"] → [class*="carousel"] → [class*="slider"] → null
+        const CONTAINER_SELECTORS = [
+          ".swiper-wrapper",
+          '[class*="gallery"]',
+          '[class*="carousel"]',
+          '[class*="slider"]',
+        ];
+
+        let container = null;
+        for (const sel of CONTAINER_SELECTORS) {
+          const el = document.querySelector(sel);
+          if (el) { container = el; break; }
+        }
+
+        console.log("[MW gallery] container found:", container
+          ? (container.className || container.tagName)
+          : "NONE");
+
+        if (!container) return { urls: [], containerFound: false };
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+        const CDN_RE  = /makerworld\.com|bambu-lab\.com/i;
+        const SKIP_RE = /avatar|icon|logo|badge|profile/i;
+
+        function parseSrcset(srcset) {
+          if (!srcset) return null;
+          let best = null, bestW = -1;
+          for (const part of srcset.split(",")) {
+            const [url, desc] = part.trim().split(/\s+/);
+            if (!url) continue;
+            const w = desc ? parseInt(desc, 10) : 0;
+            if (w > bestW) { bestW = w; best = url; }
+          }
+          return best;
+        }
+
+        const seen = new Set();
+        const urls = [];
+
+        function collect(src) {
+          if (!src || !src.startsWith("https://")) return;
+          if (SKIP_RE.test(src)) return;
+          // Accept MakerWorld/Bambu CDN URLs; also accept generic CDN-like paths
+          // (some assets are served from non-branded CDNs)
+          let key;
+          try { key = new URL(src).pathname.split("/").filter(Boolean).pop() || src; }
+          catch { key = src; }
+          if (seen.has(key)) return;
+          seen.add(key);
+          urls.push(src);
+        }
+
+        // ── Collect images within container ───────────────────────────────────
+        for (const img of container.querySelectorAll("img")) {
+          // Skip tiny rendered images (thumbnail strips, icons inside slides)
+          if (img.naturalWidth > 0 && img.naturalWidth < 200) continue;
+          const ss = img.getAttribute("srcset");
+          if (ss) { collect(parseSrcset(ss) || ""); }
+          collect(img.currentSrc || img.src || img.getAttribute("src") || "");
+        }
+        for (const source of container.querySelectorAll("source[srcset]")) {
+          collect(parseSrcset(source.getAttribute("srcset")) || "");
+        }
+        for (const vid of container.querySelectorAll("video[poster]")) {
+          collect(vid.getAttribute("poster") || "");
+        }
+
+        console.log("[MW gallery] images in container:", urls.length);
+        urls.forEach((u, i) => console.log(`  [MW gallery] [${i}]`, u));
+        return { urls, containerFound: true };
+      },
+    });
+
+    const result = results?.[0]?.result;
+    console.log("[MW gallery] containerFound:", result?.containerFound, "— urls:", result?.urls?.length ?? 0);
+    urls = result?.urls ?? [];
+  } catch (e) {
+    console.warn("[MW gallery] executeScript failed:", e);
+  }
+
+  if (opened && windowId !== null) chrome.windows.remove(windowId).catch(() => {});
+  return urls;
 }
 
 // ── File acquisition ─────────────────────────────────────────────────────────
@@ -204,6 +319,56 @@ async function acquireFile(targetUrl) {
   } else {
     console.warn("[MW acquire] CONTENT_SCRIPT_NOT_READY after re-injection — relay may fail");
   }
+
+  // Cancel any browser download the MakerWorld page starts after its API responds.
+  // MakerWorld uses the signed URL to trigger a real download — we don't want that.
+  // Only active during this acquisition; removed on every exit path.
+  const downloadGuard = (item) => {
+    const looksLikeMwDownload =
+      (item.referrer && item.referrer.includes("makerworld.com")) ||
+      (item.url && item.url.includes("makerworld.bblmw.com")) ||
+      (item.filename && item.filename.toLowerCase().endsWith(".zip"));
+
+    if (looksLikeMwDownload) {
+      chrome.downloads.cancel(item.id)
+        .then(() => {
+          console.log("[MW download] cancelled — id:", item.id);
+          // Erase the download from history so it doesn't clutter the shelf
+          return chrome.downloads.erase({ id: item.id })
+            .catch((err) => {
+              console.warn("[MW download] erase failed — id:", item.id, "error:", err);
+            });
+        })
+        .catch((err) => {
+          console.warn("[MW download] cancel failed — id:", item.id, "error:", err);
+        });
+    }
+  };
+  console.log("[MW acquire] DOWNLOAD_LISTENER_ATTACHING");
+  chrome.downloads.onCreated.addListener(downloadGuard);
+  console.log("[MW acquire] DOWNLOAD_LISTENER_ATTACHED");
+
+  // How long to keep the download listener alive after a signed URL is captured.
+  const DOWNLOAD_LISTENER_DELAY_MS = 7000; // 7 seconds
+
+  const removeDownloadGuard = () => {
+    try {
+      chrome.downloads.onCreated.removeListener(downloadGuard);
+      console.log("[MW acquire] DOWNLOAD_LISTENER_REMOVED");
+    } catch (e) {
+      console.warn("[MW acquire] REMOVE_DOWNLOAD_LISTENER_FAILED:", e);
+    }
+  };
+
+  const scheduleRemoveDownloadGuard = (delayMs = DOWNLOAD_LISTENER_DELAY_MS) => {
+    setTimeout(() => {
+      try {
+        removeDownloadGuard();
+      } catch (e) {
+        console.warn("[MW acquire] DOWNLOAD_LISTENER_REMOVE_DELAY_FAILED:", e);
+      }
+    }, delayMs);
+  };
 
   // Step 4: Attach signed-URL listener BEFORE triggering the click
   let requestObserved = false;
@@ -402,6 +567,7 @@ async function acquireFile(targetUrl) {
     });
   } catch (e) {
     cancelListener();
+    removeDownloadGuard();
     console.error("[MW acquire] SCRIPT_EXECUTE_FAILED:", e);
     if (opened && windowId !== null) chrome.windows.remove(windowId).catch(() => {});
     return { error: "CLICK_SCRIPT_FAILED", detail: String(e) };
@@ -412,6 +578,7 @@ async function acquireFile(targetUrl) {
 
   if (clickRes?.error === "CLICK_TARGET_NOT_FOUND") {
     cancelListener();
+    removeDownloadGuard();
     if (opened && windowId !== null) chrome.windows.remove(windowId).catch(() => {});
     return {
       error: "CLICK_TARGET_NOT_FOUND",
@@ -466,6 +633,7 @@ async function acquireFile(targetUrl) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[MW acquire] FAILED — error:", msg);
+    removeDownloadGuard();
     if (opened && windowId !== null) chrome.windows.remove(windowId).catch(() => {});
     // Classify the error into the standard codes
     if (msg.includes("CAPTCHA_REQUIRED")) return { error: "CAPTCHA_REQUIRED", detail: msg };
@@ -477,6 +645,7 @@ async function acquireFile(targetUrl) {
     return { error: "SIGNED_URL_TIMEOUT", detail: msg };
   }
 
+  scheduleRemoveDownloadGuard();
   if (opened && windowId !== null) {
     chrome.windows.remove(windowId).catch(() => {});
   }

@@ -60,8 +60,11 @@ export async function fetchModel(id: number): Promise<Model3D> {
   return res.json();
 }
 
-export async function likeModel(id: number) {
-  await fetch(`${BASE}/models/${id}/like`, { method: "POST" });
+export async function toggleFavorite(id: number): Promise<boolean> {
+  const res = await authFetch(`${BASE}/models/${id}/favorite`, { method: "POST" });
+  if (!res.ok) throw new Error(`Toggle favorite failed: ${res.status}`);
+  const data = await res.json();
+  return data.isFavorite as boolean;
 }
 
 export async function fetchTags(): Promise<Tag[]> {
@@ -207,6 +210,26 @@ export async function downloadModelFile(id: number, path: string): Promise<Blob>
 export async function fetchCurrentUser(): Promise<UserInfo> {
   const res = await authFetch(`${BASE}/users/me`);
   if (!res.ok) throw new Error("Failed to fetch user info");
+  return res.json();
+}
+
+export async function updateUserProfile(displayName: string): Promise<void> {
+  const res = await authFetch(`${BASE}/users/me`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ displayName }),
+  });
+  if (!res.ok) throw new Error("Failed to update profile");
+}
+
+export async function uploadUserAvatar(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await authFetch(`${BASE}/users/me/avatar`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Failed to upload avatar");
   return res.json();
 }
 
