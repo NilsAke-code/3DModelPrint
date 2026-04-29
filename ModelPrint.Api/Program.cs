@@ -63,6 +63,31 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Approval gate: block pending/rejected users from non-self API endpoints.
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value ?? "";
+    if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+        && ctx.User.Identity?.IsAuthenticated == true
+        && !path.StartsWith("/api/users/me", StringComparison.OrdinalIgnoreCase))
+    {
+        var msId = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                   ?? ctx.User.FindFirst("oid")?.Value;
+        if (msId is not null)
+        {
+            var userRepo = ctx.RequestServices.GetRequiredService<UserRepository>();
+            var current = await userRepo.GetByMicrosoftIdAsync(msId);
+            if (current is not null && current.Status != 1)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await ctx.Response.WriteAsJsonAsync(new { reason = "pending_approval", status = current.Status });
+                return;
+            }
+        }
+    }
+    await next();
+});
+
 // Migrate DB on startup
 using (var scope = app.Services.CreateScope())
 {

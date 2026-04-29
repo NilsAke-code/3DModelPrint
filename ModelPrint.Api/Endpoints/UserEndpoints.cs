@@ -21,7 +21,7 @@ public static class UserEndpoints
             return Results.Ok(new UserResponse
             {
                 Id = user.Id, Email = user.Email,
-                DisplayName = user.DisplayName, Role = user.Role,
+                DisplayName = user.DisplayName, Role = user.Role, Status = user.Status,
                 ProfilePictureUrl = user.ProfilePicturePath is not null
                     ? $"/uploads/{user.ProfilePicturePath}"
                     : null,
@@ -77,8 +77,22 @@ public static class UserEndpoints
             var users = await userRepo.GetAllAsync();
             return Results.Ok(users.Select(u => new UserResponse
             {
-                Id = u.Id, Email = u.Email, DisplayName = u.DisplayName, Role = u.Role
+                Id = u.Id, Email = u.Email, DisplayName = u.DisplayName, Role = u.Role, Status = u.Status
             }));
+        });
+
+        admin.MapPost("/users/{id:int}/approve", async (int id, HttpContext httpContext, UserRepository userRepo) =>
+        {
+            if (!await IsAdmin(httpContext, userRepo)) return Results.Forbid();
+            await userRepo.UpdateStatusAsync(id, 1);
+            return Results.NoContent();
+        });
+
+        admin.MapPost("/users/{id:int}/reject", async (int id, HttpContext httpContext, UserRepository userRepo) =>
+        {
+            if (!await IsAdmin(httpContext, userRepo)) return Results.Forbid();
+            await userRepo.UpdateStatusAsync(id, 2);
+            return Results.NoContent();
         });
 
         admin.MapPut("/users/{id:int}/role", async (int id, UpdateRoleRequest request, HttpContext httpContext, UserRepository userRepo) =>

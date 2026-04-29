@@ -37,14 +37,19 @@ public class UserRepository(ModelPrintDbContext db, IConfiguration config)
             return user;
         }
 
-        // Auto-promote to admin if email matches AdminSettings:Email in appsettings.json
-        var role = (!string.IsNullOrEmpty(AdminEmail) &&
-                    email.Equals(AdminEmail, StringComparison.OrdinalIgnoreCase)) ? 2 : 1;
+        // Auto-promote to admin if email matches AdminSettings:Email, OR if no users exist yet (first-run bootstrap).
+        var hasAnyUser = await db.Users.AnyAsync();
+        var isAdminEmail = !string.IsNullOrEmpty(AdminEmail) &&
+                           email.Equals(AdminEmail, StringComparison.OrdinalIgnoreCase);
+        var isAdmin = isAdminEmail || !hasAnyUser;
+        var role = isAdmin ? 2 : 1;
+        var status = isAdmin ? 1 : 0; // admins auto-approved; others pending
 
         user = new User
         {
             Email = email, DisplayName = displayName, MicrosoftId = microsoftId,
-            Role = role, CreatedAt = DateTime.UtcNow, LastLoginAt = DateTime.UtcNow
+            Role = role, Status = status,
+            CreatedAt = DateTime.UtcNow, LastLoginAt = DateTime.UtcNow
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();
@@ -65,6 +70,10 @@ public class UserRepository(ModelPrintDbContext db, IConfiguration config)
     public async Task UpdateRoleAsync(int userId, int role) =>
         await db.Users.Where(u => u.Id == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(u => u.Role, role));
+
+    public async Task UpdateStatusAsync(int userId, int status) =>
+        await db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(s => s.SetProperty(u => u.Status, status));
 
     public async Task<AdminStats> GetStatsAsync()
     {

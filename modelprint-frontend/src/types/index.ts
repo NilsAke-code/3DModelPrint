@@ -59,6 +59,7 @@ export interface UserInfo {
   email: string;
   displayName: string;
   role: number;
+  status: number; // 0=Pending, 1=Approved, 2=Rejected
   profilePictureUrl?: string;
 }
 

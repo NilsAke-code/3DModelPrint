@@ -247,6 +247,16 @@ export async function fetchAdminUsers(): Promise<UserInfo[]> {
   return res.json();
 }
 
+export async function approveUser(userId: number): Promise<void> {
+  const res = await authFetch(`${BASE}/admin/users/${userId}/approve`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to approve user");
+}
+
+export async function rejectUser(userId: number): Promise<void> {
+  const res = await authFetch(`${BASE}/admin/users/${userId}/reject`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to reject user");
+}
+
 export async function updateUserRole(userId: number, role: number): Promise<void> {
   const res = await authFetch(`${BASE}/admin/users/${userId}/role`, {
     method: "PUT",

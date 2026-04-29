@@ -9,6 +9,7 @@ public class User
     public string DisplayName { get; set; } = "";
     public string MicrosoftId { get; set; } = "";
     public int Role { get; set; } = 1;
+    public int Status { get; set; } = 0; // 0=Pending, 1=Approved, 2=Rejected
     public string? ProfilePicturePath { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime LastLoginAt { get; set; }
@@ -36,6 +37,7 @@ public class UserResponse
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public int Role { get; set; }
+    public int Status { get; set; }
     public string? ProfilePictureUrl { get; set; }
 }
 

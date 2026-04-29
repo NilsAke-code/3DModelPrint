@@ -6,6 +6,7 @@ import {
   fetchAdminStats, fetchAdminUsers, fetchAdminModels,
   updateUserRole, adminDeleteModel, getThumbnailUrl,
   getModelFileUrl, uploadModelImages,
+  approveUser, rejectUser,
 } from '../services/api';
 import { generateModelGallery } from '../utils/generateThumbnail';
 import type { AdminStats, UserInfo, Model3D } from '../types';
@@ -119,6 +120,22 @@ function UsersTab() {
     } catch (err) { console.error('Failed to update role:', err); }
   }
 
+  async function handleApprove(userId: number) {
+    try {
+      await approveUser(userId);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 1 } : u)));
+    } catch (err) { console.error('Failed to approve user:', err); }
+  }
+
+  async function handleReject(userId: number) {
+    try {
+      await rejectUser(userId);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: 2 } : u)));
+    } catch (err) { console.error('Failed to reject user:', err); }
+  }
+
+  const pending = users.filter((u) => u.status === 0);
+
   const roleBadge = (role: number) => {
     switch (role) {
       case 0: return <span className="px-2 py-0.5 rounded-full text-xs bg-gray-600/30 text-gray-400">Guest</span>;
@@ -131,6 +148,48 @@ function UsersTab() {
   if (loading) return <div className="text-text-secondary py-8">Loading users...</div>;
 
   return (
+    <div className="space-y-6">
+    {pending.length > 0 && (
+      <div className="bg-bg-card border border-accent/40 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-sm font-medium text-text-primary">Pending approval</span>
+          <span className="text-xs text-text-secondary">{pending.length} waiting</span>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-text-secondary text-left">
+              <th className="px-5 py-3 font-medium">Name</th>
+              <th className="px-5 py-3 font-medium">Email</th>
+              <th className="px-5 py-3 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pending.map((u) => (
+              <tr key={u.id} className="border-b border-border/50">
+                <td className="px-5 py-3 text-text-primary">{u.displayName || '—'}</td>
+                <td className="px-5 py-3 text-text-secondary">{u.email}</td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleApprove(u.id)}
+                      className="px-3 py-1 text-xs rounded bg-accent text-bg-primary hover:bg-accent-hover transition-colors"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleReject(u.id)}
+                      className="px-3 py-1 text-xs rounded border border-border text-text-secondary hover:text-red-400 hover:border-red-400/50 transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
     <div className="bg-bg-card border border-border rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
@@ -167,6 +226,7 @@ function UsersTab() {
         </tbody>
       </table>
       {users.length === 0 && <div className="text-text-secondary text-center py-8">No users found.</div>}
+    </div>
     </div>
   );
 }
